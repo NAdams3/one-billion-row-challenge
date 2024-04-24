@@ -4,8 +4,8 @@ This is a custom version of the one billion row challenge to better understand c
 
 Also running bets on how long it takes me to fry my CPU lol ...
 
-[!CAUTION]
-Use at your own risk!
+> [!CAUTION]
+> Use at your own risk!
 
 ### usage
 run:
