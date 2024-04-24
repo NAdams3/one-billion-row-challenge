@@ -6,12 +6,12 @@ import (
 	"os"
 )
 
-func generate(count int) error {
+func generateMeasurements(count int) error {
 
 	stdDev := 7.78
 	mean := 13.21
 
-	file, err := os.Create("measurements.txt")
+	file, err := os.Create(fmt.Sprintf(inFileName, count))
 	if err != nil {
 		return err
 	}

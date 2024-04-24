@@ -1,18 +1,30 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"runtime/pprof"
 	"runtime/trace"
-	"sort"
-	"strconv"
-	"strings"
 )
+
+const inFileName = "measurements-%v.txt"
+const outFileName = "out-%v.txt"
+const profFileName = "%v-%v-profile.prof"
+const traceFileName = "%v-%v-trace.out"
 
 func main() {
 
-	profFile, err := os.Create("performance.prof")
+	generate := flag.Bool("generate", false, "Generates a measurements file with count lines instead of processing")
+	count := flag.Int("count", 0, "The length of which measurements file to process.")
+	flag.Parse()
+
+	action := "process"
+	if *generate {
+		action = "generate"
+	}
+
+	profFile, err := os.Create(fmt.Sprintf(profFileName, action, *count))
 	if err != nil {
 		panic(err)
 	}
@@ -24,7 +36,7 @@ func main() {
 	}
 	defer pprof.StopCPUProfile()
 
-	traceFile, err := os.Create("trace.out")
+	traceFile, err := os.Create(fmt.Sprintf(traceFileName, action, *count))
 	if err != nil {
 		panic(err)
 	}
@@ -36,84 +48,20 @@ func main() {
 	}
 	defer trace.Stop()
 
-	err = printMinMeanMax()
-	if err != nil {
-		panic(err)
-	}
-
-}
-
-type LocationStats struct {
-	min, max, sum float64
-	count         int
-}
-
-func printMinMeanMax() error {
-
-	out := make(map[string]*LocationStats, 0)
-	keys := make([]string, 0)
-
-	fileBytes, err := os.ReadFile("measurements.txt")
-	if err != nil {
-		return err
-	}
-
-	rows := strings.Split(string(fileBytes), "\n")
-
-	for _, row := range rows {
-		columns := strings.Split(row, ";")
-		if len(columns) < 2 {
-			continue
-		}
-
-		location := columns[0]
-		temperature, err := strconv.ParseFloat(columns[1], 64)
+	if *generate {
+		fmt.Printf("Generating measurements file with %v rows.\n", *count)
+		err = generateMeasurements(*count)
 		if err != nil {
-			return err
+			panic(err)
 		}
-
-		stats := out[location]
-
-		if stats == nil {
-			out[location] = &LocationStats{
-				min:   temperature,
-				max:   temperature,
-				sum:   temperature,
-				count: 1,
-			}
-			keys = append(keys, location)
-			continue
+		fmt.Println("Generation successful!")
+	} else {
+		fmt.Printf("Processing measurements file with %v rows.\n", *count)
+		err = processMeasurements(*count)
+		if err != nil {
+			panic(err)
 		}
-
-		if temperature < stats.min {
-			stats.min = temperature
-		}
-
-		if temperature > stats.max {
-			stats.max = temperature
-		}
-
-		stats.sum += temperature
-		stats.count++
-
+		fmt.Println("Measurements have been processed successfully!")
 	}
-
-	sort.Strings(keys)
-
-	outFile, err := os.Create("out.txt")
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-
-	for _, key := range keys {
-
-		outStats := out[key]
-
-		outRow := fmt.Sprintf("%v;%.1f;%.1f;%.1f\n", key, outStats.min, outStats.sum/float64(outStats.count), outStats.max)
-		outFile.Write([]byte(outRow))
-	}
-
-	return nil
 
 }
