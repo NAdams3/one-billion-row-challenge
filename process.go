@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"sort"
@@ -18,14 +19,25 @@ func processMeasurements(count int) error {
 	out := make(map[string]*LocationStats, 0)
 	keys := make([]string, 0)
 
-	fileBytes, err := os.ReadFile(fmt.Sprintf(inFileName, count))
+	// fileBytes, err := os.ReadFile(fmt.Sprintf(inFileName, count))
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// rows := strings.Split(string(fileBytes), "\n")
+	//
+
+	file, err := os.Open(fmt.Sprintf(inFileName, count))
 	if err != nil {
 		return err
 	}
 
-	rows := strings.Split(string(fileBytes), "\n")
+	rows := make(chan string, 1)
 
-	for _, row := range rows {
+	go populateChannel(file, rows)
+
+	for row := range rows {
+		/* 	fmt.Println(row) */
 		columns := strings.Split(row, ";")
 		if len(columns) < 2 {
 			continue
@@ -81,4 +93,12 @@ func processMeasurements(count int) error {
 
 	return nil
 
+}
+
+func populateChannel(file *os.File, ch chan string) {
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		ch <- scanner.Text()
+	}
+	close(ch)
 }
