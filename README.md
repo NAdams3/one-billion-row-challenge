@@ -4,6 +4,8 @@ This is a custom version of the one billion row challenge to better understand c
 
 Also running bets on how long it takes me to fry my CPU lol ...
 
+Status: Unable to process 1_000_000_000 rows
+
 > [!CAUTION]
 > Use at your own risk!
 
