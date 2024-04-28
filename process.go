@@ -38,20 +38,30 @@ func processMeasurements(count int) error {
 	searchBytes := []byte(searchString)
 	searchLen := len(searchBytes)
 
+	columnSplit := ";"
+
 	go populateChannel(file, chunks, searchBytes, searchLen)
 
 	for chunk := range chunks {
-		rows := strings.Split(chunk, "\n")
 
-		for _, row := range rows {
-			/* 	fmt.Println(row) */
-			columns := strings.Split(row, ";")
-			if len(columns) < 2 {
+		for len(chunk) > 0 {
+
+			endIndex := strings.Index(chunk, "\n")
+			row := chunk
+			if endIndex != -1 {
+				row = chunk[:endIndex]
+				chunk = chunk[endIndex+1:]
+			} else {
+				chunk = ""
+			}
+
+			splitIndex := strings.Index(row, columnSplit)
+			if splitIndex == -1 || row[splitIndex+1:] == "" {
 				continue
 			}
 
-			location := columns[0]
-			temperature, err := strconv.ParseFloat(columns[1], 64)
+			location := row[:splitIndex]
+			temperature, err := strconv.ParseFloat(row[splitIndex+1:], 16)
 			if err != nil {
 				return err
 			}
