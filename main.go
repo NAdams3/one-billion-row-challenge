@@ -19,6 +19,11 @@ func main() {
 	count := flag.Int("count", 0, "The length of which measurements file to process.")
 	flag.Parse()
 
+	if *count > 1_000_000_000 {
+		fmt.Println("Bro 1 billion isn't enough for you?")
+		return
+	}
+
 	action := "process"
 	if *generate {
 		action = "generate"

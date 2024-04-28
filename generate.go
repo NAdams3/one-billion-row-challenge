@@ -8,10 +8,18 @@ import (
 
 func generateMeasurements(count int) error {
 
+	fileName := fmt.Sprintf(inFileName, count)
+
+	_, err := os.Open(fileName)
+	if err == nil {
+		fmt.Printf("Measurements file with %v rows already exists.\n", count)
+		return nil
+	}
+
 	stdDev := 7.78
 	mean := 13.21
 
-	file, err := os.Create(fmt.Sprintf(inFileName, count))
+	file, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
@@ -22,7 +30,7 @@ func generateMeasurements(count int) error {
 		cityIndex := rand.Intn(len(cities))
 		temperature := rand.NormFloat64()*stdDev + mean
 
-		row := fmt.Sprintf("%v;%v\n", cities[cityIndex], fmt.Sprintf("%.1f", temperature))
+		row := fmt.Sprintf("%v;%.1f\n", cities[cityIndex], temperature)
 
 		_, err = file.Write([]byte(row))
 		if err != nil {
