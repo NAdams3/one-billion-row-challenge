@@ -7,6 +7,7 @@ Also running bets on how long it takes me to fry my CPU lol ...
 Status:
 Attempt 1: Unable to process 1_000_000_000 rows, OOM error
 Attempt 2: 709.18s
+Attempt 3: 163.59
 
 > [!CAUTION]
 > Use at your own risk!

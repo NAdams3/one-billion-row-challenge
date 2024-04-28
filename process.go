@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"sort"
@@ -32,47 +33,54 @@ func processMeasurements(count int) error {
 		return err
 	}
 
-	rows := make(chan string, 1)
+	chunks := make(chan string, 1)
+	searchString := "\n"
+	searchBytes := []byte(searchString)
+	searchLen := len(searchBytes)
 
-	go populateChannel(file, rows)
+	go populateChannel(file, chunks, searchBytes, searchLen)
 
-	for row := range rows {
-		/* 	fmt.Println(row) */
-		columns := strings.Split(row, ";")
-		if len(columns) < 2 {
-			continue
-		}
+	for chunk := range chunks {
+		rows := strings.Split(chunk, "\n")
 
-		location := columns[0]
-		temperature, err := strconv.ParseFloat(columns[1], 64)
-		if err != nil {
-			return err
-		}
-
-		stats := out[location]
-
-		if stats == nil {
-			out[location] = &LocationStats{
-				min:   temperature,
-				max:   temperature,
-				sum:   temperature,
-				count: 1,
+		for _, row := range rows {
+			/* 	fmt.Println(row) */
+			columns := strings.Split(row, ";")
+			if len(columns) < 2 {
+				continue
 			}
-			keys = append(keys, location)
-			continue
+
+			location := columns[0]
+			temperature, err := strconv.ParseFloat(columns[1], 64)
+			if err != nil {
+				return err
+			}
+
+			stats := out[location]
+
+			if stats == nil {
+				out[location] = &LocationStats{
+					min:   temperature,
+					max:   temperature,
+					sum:   temperature,
+					count: 1,
+				}
+				keys = append(keys, location)
+				continue
+			}
+
+			if temperature < stats.min {
+				stats.min = temperature
+			}
+
+			if temperature > stats.max {
+				stats.max = temperature
+			}
+
+			stats.sum += temperature
+			stats.count++
+
 		}
-
-		if temperature < stats.min {
-			stats.min = temperature
-		}
-
-		if temperature > stats.max {
-			stats.max = temperature
-		}
-
-		stats.sum += temperature
-		stats.count++
-
 	}
 
 	sort.Strings(keys)
@@ -95,10 +103,32 @@ func processMeasurements(count int) error {
 
 }
 
-func populateChannel(file *os.File, ch chan string) {
+func populateChannel(file *os.File, ch chan string, searchBytes []byte, searchLen int) {
 	scanner := bufio.NewScanner(file)
+	scanner.Split(splitAtLast(searchBytes, searchLen))
 	for scanner.Scan() {
 		ch <- scanner.Text()
 	}
 	close(ch)
+}
+
+func splitAtLast(searchBytes []byte, searchLen int) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		dataLen := len(data)
+
+		if atEOF && dataLen == 0 {
+			return 0, nil, nil
+		}
+
+		if i := bytes.LastIndex(data, searchBytes); i >= 0 {
+			return i + searchLen, data[0:i], nil
+		}
+
+		if atEOF {
+			return dataLen, data, nil
+		}
+
+		return 0, nil, nil
+
+	}
 }
