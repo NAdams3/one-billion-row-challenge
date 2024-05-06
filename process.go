@@ -3,11 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"os"
 	"sort"
-	"strconv"
-	"strings"
 )
 
 type LocationStats struct {
@@ -17,54 +17,51 @@ type LocationStats struct {
 
 func processMeasurements(count int) error {
 
-	out := make(map[string]*LocationStats, 0)
-	keys := make([]string, 0)
-
-	// fileBytes, err := os.ReadFile(fmt.Sprintf(inFileName, count))
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// rows := strings.Split(string(fileBytes), "\n")
-	//
+	out := make(map[string]*LocationStats, 1000)
+	keys := make([]string, 0, 1000)
 
 	file, err := os.Open(fmt.Sprintf(inFileName, count))
 	if err != nil {
 		return err
 	}
 
-	chunks := make(chan string, 1)
 	searchString := "\n"
 	searchBytes := []byte(searchString)
 	searchLen := len(searchBytes)
 
 	columnSplit := ";"
+	columnSplitBytes := []byte(columnSplit)
+	columnSplitLen := len(columnSplitBytes)
 
-	go populateChannel(file, chunks, searchBytes, searchLen)
+	scanner := bufio.NewScanner(file)
+	scanner.Split(splitAtLast(searchBytes, searchLen))
 
-	for chunk := range chunks {
+	bufMax := 1024 * 1024
+	buf := make([]byte, bufMax)
+	scanner.Buffer(buf, bufMax)
+
+	for scanner.Scan() {
+		chunk := scanner.Bytes()
 
 		for len(chunk) > 0 {
 
-			endIndex := strings.Index(chunk, "\n")
+			endIndex := bytes.Index(chunk, searchBytes)
 			row := chunk
 			if endIndex != -1 {
 				row = chunk[:endIndex]
-				chunk = chunk[endIndex+1:]
+				chunk = chunk[endIndex+searchLen:]
 			} else {
-				chunk = ""
+				chunk = []byte("")
 			}
 
-			splitIndex := strings.Index(row, columnSplit)
-			if splitIndex == -1 || row[splitIndex+1:] == "" {
+			splitIndex := bytes.Index(row, columnSplitBytes)
+			if splitIndex == -1 || len(row[splitIndex+columnSplitLen:]) <= 0 {
 				continue
 			}
 
-			location := row[:splitIndex]
-			temperature, err := strconv.ParseFloat(row[splitIndex+1:], 16)
-			if err != nil {
-				return err
-			}
+			location := string(row[:splitIndex])
+			fmt.Printf("temp: %v \n", string(row[splitIndex+columnSplitLen:]))
+			temperature := float64FromBytes(row[splitIndex+columnSplitLen:])
 
 			stats := out[location]
 
@@ -93,6 +90,17 @@ func processMeasurements(count int) error {
 		}
 	}
 
+	err = writeOut(keys, out, count)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func writeOut(keys []string, out map[string]*LocationStats, count int) error {
+
 	sort.Strings(keys)
 
 	outFile, err := os.Create(fmt.Sprintf(outFileName, count))
@@ -105,7 +113,12 @@ func processMeasurements(count int) error {
 
 		outStats := out[key]
 
-		outRow := fmt.Sprintf("%v;%.1f;%.1f;%.1f\n", key, outStats.min, outStats.sum/float64(outStats.count), outStats.max)
+		outRow := fmt.Sprintf("%v;%.1f;%.1f;%.1f\n",
+			key,
+			outStats.min,
+			outStats.sum/float64(outStats.count),
+			outStats.max,
+		)
 		outFile.Write([]byte(outRow))
 	}
 
@@ -113,13 +126,9 @@ func processMeasurements(count int) error {
 
 }
 
-func populateChannel(file *os.File, ch chan string, searchBytes []byte, searchLen int) {
-	scanner := bufio.NewScanner(file)
-	scanner.Split(splitAtLast(searchBytes, searchLen))
-	for scanner.Scan() {
-		ch <- scanner.Text()
-	}
-	close(ch)
+func float64FromBytes(bytes []byte) float64 {
+	bits := binary.LittleEndian.Uint64(bytes)
+	return math.Float64frombits(bits)
 }
 
 func splitAtLast(searchBytes []byte, searchLen int) func(data []byte, atEOF bool) (advance int, token []byte, err error) {

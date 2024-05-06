@@ -17,6 +17,7 @@ func main() {
 
 	generate := flag.Bool("generate", false, "Generates a measurements file with count lines instead of processing")
 	count := flag.Int("count", 0, "The length of which measurements file to process.")
+	force := flag.Bool("force", false, "Forces generate to generate a new file regardless of existence")
 	flag.Parse()
 
 	if *count > 1_000_000_000 {
@@ -55,7 +56,7 @@ func main() {
 
 	if *generate {
 		fmt.Printf("Generating measurements file with %v rows.\n", *count)
-		err = generateMeasurements(*count)
+		err = generateMeasurements(*count, *force)
 		if err != nil {
 			panic(err)
 		}
